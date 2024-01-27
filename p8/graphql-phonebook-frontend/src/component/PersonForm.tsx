@@ -1,6 +1,7 @@
 import {useState} from 'react'
 import {gql, useMutation} from '@apollo/client'
 import styled from 'styled-components'
+import {CREATE_PERSON, ALL_PERSONS} from './queries'
 
 const Button = styled.button`
   background: Bisque;
@@ -21,50 +22,38 @@ const Page = styled.div`
 const Divas = styled.div`
   background: Skyblue;
   padding: 1em;
-  margin-top: 0.2em;
+  margin-top: 1em;
   
 `
 
-const CREATE_PERSON = gql`
-mutation createPerson($name: String!, $street: String!, $city: String!, $phone: String) {
-    addPerson(
-      name: $name,
-      street: $street,
-      city: $city,
-      phone: $phone
-    ) {
-      name
-      phone
-      id
-      address {
-        street
-        city
-      }
-    }
-  }
-`
-const ALL_PERSONS = gql`
-  query  {
-    allPersons  {
-      name
-      phone
-      id
-    }
-  }
-`
-const PersonForm = () =>{
+
+
+const PersonForm = ({setError}) =>{
     const [name, setName] = useState('')
     const [phone, setPhone] = useState('')
     const [street, setStreet] = useState('')
     const [city, setCity] = useState('')
 
     const [createPerson] = useMutation(CREATE_PERSON, {
-        refetchQueries: [{query: ALL_PERSONS}]
+       
+        onError: (error) =>{
+          const message = error.graphQLErrors.map(e=> e.message).join('\n')
+          setError(message)
+        },
+        update: (cache,response) =>{
+          cache.updateQuery({query: ALL_PERSONS}, ({allPersons})=>{
+            return {
+              allPersons: allPersons.concat(response.data.addPersons),
+            }
+          })
+        }
     })
 
     const submit =(event) =>{
         event.preventDefault()
-        createPerson({variables: {name,phone,street,city}})
+        createPerson({variables: {name,street,city,
+                                 phone: phone.length>0? phone: undefined
+        }})
         setName('')
         setCity('')
         setStreet('')
